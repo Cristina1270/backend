@@ -1,0 +1,20 @@
+# STAGE 1: BUILD
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --only=production
+
+# STAGE 2: RUNTIME
+FROM node:22-alpine
+WORKDIR /app
+
+# Usuario no root
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY --from=build /app/node_modules ./node_modules
+COPY . .
+
+RUN chown -R appuser:appgroup /app
+USER appuser
+EXPOSE 3000
+CMD ["node", "index.js"]
