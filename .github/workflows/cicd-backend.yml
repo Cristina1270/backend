@@ -34,3 +34,23 @@ jobs:
       - name: Push imagen a ECR
         run: |
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mi-app/backend:v1.0.${{ github.run_number }}
+
+      - name: Deploy en EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            aws ecr get-login-password --region us-east-1 > /tmp/ecr-token.txt
+            cat /tmp/ecr-token.txt | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            docker rm -f backend
+            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mi-app/backend:latest
+            docker run -d --name backend --restart=always \
+              --network app-network \
+              -e DB_HOST=db \
+              -e DB_USER=root \
+              -e DB_PASSWORD=root \
+              -e DB_NAME=tienda \
+              -p 3000:3000 \
+              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mi-app/backend:latest
